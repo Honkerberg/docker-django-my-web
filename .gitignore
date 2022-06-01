@@ -131,3 +131,6 @@ dmypy.json
 # Env prod files
 .env.prod
 .env.prod.db
+
+# Docker prod
+docker-compose.prod.yml
