@@ -1,0 +1,44 @@
+FROM python:3.10.4-alpine as base
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+FROM base as python-deps
+
+RUN pip install --upgrade pip
+RUN pip install flake8==4.0.1
+COPY . .
+RUN flake8 --ignore=E501,F401 ./mysite
+
+RUN pip install pipenv
+COPY Pipfile .
+COPY Pipfile.lock .
+RUN PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
+
+FROM base as runtime
+
+RUN mkdir -p /home/app
+RUN addgroup -S app && adduser -S app -G app
+
+ENV HOME=/home/app
+ENV APP_HOME=/home/app/web
+RUN mkdir ${APP_HOME}
+RUN mkdir ${APP_HOME}/staticfiles
+RUN mkdir ${APP_HOME}/mediafiles
+WORKDIR ${APP_HOME}
+
+COPY --from=python-deps /.venv /.venv
+ENV PATH="/.venv/bin:$PATH"
+
+COPY ./entrypoint.prod.sh .
+RUN sed -i 's/\r$//g' ${APP_HOME}/entrypoint.prod.sh
+RUN chmod +x ${APP_HOME}/entrypoint.prod.sh
+
+COPY . ${APP_HOME}
+
+RUN chown -R app:app ${APP_HOME}
+
+USER app
+
+
+ENTRYPOINT [ "/home/app/web/entrypoint.prod.sh" ]
